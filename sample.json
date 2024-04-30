@@ -1,0 +1,4 @@
+{"Report":
+{"patient":
+{"id":"1234","name":"AAAAAA","sex":"O","birthDate":"","phone":"","address":"","height":"","weight":"","priority":"","department":""},"order":{"id":"123456789","serviceCode":"","serviceName":"ABD","status":"FINALIZED","orderDate":"","doctor":"","modality":""},"report":{"description":"Ini Test Expertise\nIni Test Expertise\nIni Test Expertise\nIni Test Expertise\nIni Test Expertise\nIni Test Expertise","reportDate":"2023-08-02 09:08:17","doctorID":"","doctorName":"Admin Philips"}}
+}
