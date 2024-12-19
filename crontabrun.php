@@ -7,41 +7,77 @@ function getDataJsonFromDatabase()
     global $koneksi_layanan;
     global $koneksi_pendaftaran;
     $sql = $sql = "SELECT 
-            order_rad.TANGGAL, 
-            order_rad.DOKTER_ASAL, 
-            order_rad.ALASAN,
-            order_rad.KUNJUNGAN as KUNJUNGAN_ASAL,
-            order_detil_rad.TINDAKAN,
-            order_detil_rad.REF AS TINDAKAN_MEDIS,
-            kunjungan.NOPEN, 
-            kunjungan.RUANGAN, 
-            kunjungan.NOMOR,
-            kunjungan.MASUK,
-            pendaftaran.NORM,
-            pasien.NAMA, 
-            pasien.GELAR_DEPAN, 
-            pasien.GELAR_BELAKANG, 
-            pasien.TANGGAL_LAHIR, 
-            pasien.ALAMAT,
-            pasien.JENIS_KELAMIN,
-            kontak_pasien.NOMOR AS NOMOR_KONTAK,
-            master_ruangan.DESKRIPSI AS NAMA_RUANGAN,
-            tindakan.NAMA AS NAMA_TINDAKAN,
-            dokter.NIP AS NIP_DOKTER,
-            pegawai.NAMA AS NAMA_DOKTER,
-            modality_rad.MODALITY
-        FROM layanan.order_rad
-        LEFT JOIN layanan.order_detil_rad ON order_rad.NOMOR = order_detil_rad.ORDER_ID
-        INNER JOIN pendaftaran.kunjungan ON order_rad.NOMOR = kunjungan.REF
-        INNER JOIN pendaftaran.pendaftaran ON kunjungan.NOPEN = pendaftaran.NOMOR
-        INNER JOIN master.pasien ON pendaftaran.NORM = pasien.NORM
-        LEFT JOIN master.kontak_pasien ON pasien.NORM = kontak_pasien.NORM
-        LEFT JOIN master.ruangan AS master_ruangan ON kunjungan.RUANGAN = master_ruangan.ID
-        LEFT JOIN master.tindakan ON order_detil_rad.TINDAKAN = tindakan.ID
-        LEFT JOIN layanan.modality_rad ON order_detil_rad.TINDAKAN = modality_rad.TINDAKAN
-        LEFT JOIN master.dokter ON order_rad.DOKTER_ASAL = dokter.ID
-        LEFT JOIN master.pegawai ON dokter.NIP = pegawai.NIP
-        WHERE kunjungan.RUANGAN = '101110101' AND kunjungan.NOMOR NOT IN (SELECT NOMOR FROM pendaftaran.log_order_radiologi)";
+                    ordrad.TANGGAL, 
+                    ordrad.DOKTER_ASAL, 
+                    ordrad.ALASAN,
+                    ordrad.KUNJUNGAN AS KUNJUNGAN_ASAL,
+                    ordet.REF AS TINDAKAN_MEDIS,
+                    kunj.NOPEN, 
+                    kunj.RUANGAN, 
+                    kunj.NOMOR,
+                    kunj.MASUK,
+                    pendaftar.NORM,
+                    psn.NAMA, 
+                    psn.GELAR_DEPAN, 
+                    psn.GELAR_BELAKANG, 
+                    psn.TANGGAL_LAHIR, 
+                    psn.ALAMAT,
+                    psn.JENIS_KELAMIN,
+                    kontak_pasien.NOMOR AS NOMOR_KONTAK,
+                    ruang.DESKRIPSI AS NAMA_RUANGAN,
+                    tindak.ID AS TINDAKAN,
+                    tindak.NAMA AS NAMA_TINDAKAN,
+                    tindakBaru.ID AS TINDAKAN_BARU,
+                    tindakBaru.NAMA AS NAMA_TINDAKAN_BARU,
+                    dktr.NIP AS NIP_DOKTER,
+                    peg.NAMA AS NAMA_DOKTER,
+                    modality.MODALITY
+                FROM 
+                    layanan.order_rad AS ordrad
+                    LEFT JOIN layanan.order_detil_rad AS ordet
+                        ON ordrad.NOMOR = ordet.ORDER_ID
+
+                    INNER JOIN pendaftaran.kunjungan AS kunj
+                        ON ordrad.NOMOR = kunj.REF
+
+                    INNER JOIN pendaftaran.pendaftaran AS pendaftar
+                        ON kunj.NOPEN = pendaftar.NOMOR
+
+                    INNER JOIN master.pasien AS psn
+                        ON pendaftar.NORM = psn.NORM
+
+                    LEFT JOIN master.kontak_pasien AS kontak_pasien
+                        ON psn.NORM = kontak_pasien.NORM
+
+                    LEFT JOIN master.ruangan AS ruang
+                        ON kunj.RUANGAN = ruang.ID
+
+                    -- Mapping Tindakan Baru To Lama
+                    LEFT JOIN master.mapping_tindakan_lama_to_baru_rad AS map_tindakan
+                        ON ordet.TINDAKAN = map_tindakan.ID_TINDAKAN_BARU
+                    LEFT JOIN master.tindakan AS tindak
+                        ON map_tindakan.ID_TINDAKAN_LAMA = tindak.ID
+                    
+                    -- Langsung Ammbil Tindakan Baru
+                    LEFT JOIN master.tindakan AS tindakBaru
+                        ON ordet.TINDAKAN = tindakBaru.ID
+
+                    LEFT JOIN layanan.modality_rad AS modality
+                        ON map_tindakan.ID_TINDAKAN_LAMA = modality.TINDAKAN
+
+                    LEFT JOIN master.dokter AS dktr
+                        ON ordrad.DOKTER_ASAL = dktr.ID
+
+                    LEFT JOIN master.pegawai AS peg
+                        ON dktr.NIP = peg.NIP
+
+                WHERE 
+                    kunj.RUANGAN = '101110101' 
+                    AND kunj.NOMOR NOT IN (
+                        SELECT NOMOR 
+                        FROM pendaftaran.log_order_radiologi
+                    )
+                    AND ordrad.TANGGAL > '2024-12-17';";
 
     $result = $koneksi_layanan->query($sql);
 
@@ -78,6 +114,16 @@ function getDataJsonFromDatabase()
             $tanggal_waktu = $row['TANGGAL_LAHIR'];
             $tanggal = date("Y-m-d", strtotime($tanggal_waktu));
 
+            $tindakan = '';
+            $namaTIndakan = '';
+            if ($row['TINDAKAN'] != null) {
+                $tindakan = $row['TINDAKAN'];
+                $namaTIndakan = $row['NAMA_TINDAKAN'];
+            }else{
+                $tindakan = $row['TINDAKAN_BARU'];
+                $namaTIndakan = $row['NAMA_TINDAKAN_BARU'];
+            }
+
             $data[] = array(
                 'Order' => array(
                     'patient' => array(
@@ -96,8 +142,8 @@ function getDataJsonFromDatabase()
                     ),
                     'order' => array(
                         'id' => $row['TINDAKAN_MEDIS'],
-                        'serviceCode' => $row['TINDAKAN'],
-                        'serviceName' => $row['NAMA_TINDAKAN'],
+                        'serviceCode' => $tindakan,
+                        'serviceName' => $namaTIndakan,
                         'status' => 'NEW',
                         'orderDate' => $row['TANGGAL'],
                         'doctor' => $row['NAMA_DOKTER'],
@@ -197,11 +243,15 @@ function sendDataToAPI($data)
         echo 'API Response: ' . $response;
         $responseData = json_decode($response, true);
         if (isset($responseData['code']) && $responseData['code'] == '200') {
-            $insertSql = "INSERT INTO pendaftaran.log_order_radiologi (MASUK, NOMOR,MODALITY, DATA_SEND) VALUES ('$masuk', $nokun,'$modality','$json_data')";
-            $insertResult = $koneksi_layanan->query($insertSql);
+            // Persiapkan pernyataan SQL dengan parameter
+            $insertSql = "INSERT INTO pendaftaran.log_order_radiologi (MASUK, NOMOR, MODALITY, DATA_SEND, RESPONSE) VALUES (?, ?, ?, ?, ?)";
+            $stmt = $koneksi_layanan->prepare($insertSql);
+            $stmt->bind_param("sssss", $masuk, $nokun, $modality, $json_data, $response);
+            $insertResult = $stmt->execute();
             if (!$insertResult) {
                 die("Error: " . $koneksi_layanan->error);
             }
+            $stmt->close();
         }
     }
 

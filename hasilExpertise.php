@@ -60,40 +60,47 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                     }else{}
                 }
                 $response = json_encode($json_data);
-                // $sql = "INSERT INTO layanan.report_rad (PATIENT_ID, TINDAKAN_MEDIS, DESCRIPTION, REPORT_DATE, DOCTOR_ID, DOCTOR_NAME, LINK, RESPONSE)
-                //         VALUES ('$patientID', '$orderID', '$description', '$reportDate', '$doctorID', '$doctorName', '$link', '$response')
-                //         ON DUPLICATE KEY UPDATE 
-                //         DESCRIPTION = VALUES(DESCRIPTION),
-                //         REPORT_DATE = VALUES(REPORT_DATE),
-                //         DOCTOR_ID = VALUES(DOCTOR_ID),
-                //         DOCTOR_NAME = VALUES(DOCTOR_NAME),
-                //         LINK = VALUES(LINK),
-                //         RESPONSE = VALUES(RESPONSE)";
-                $sql = "INSERT INTO layanan.report_rad (PATIENT_ID, TINDAKAN_MEDIS, DESCRIPTION, REPORT_DATE, DOCTOR_ID, DOCTOR_NAME,LINK,RESPONSE)
-                        VALUES ('$patientID', '$orderID', '$description', '$reportDate', '$doctorID', '$doctorName', '$link','$response')";
+                // SQL untuk memasukkan data ke dalam tabel report_rad
+                $insertSql1 = "INSERT INTO layanan.report_rad 
+                            (PATIENT_ID, TINDAKAN_MEDIS, DESCRIPTION, REPORT_DATE, DOCTOR_ID, DOCTOR_NAME, LINK, RESPONSE)
+                            VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
+                $stmt1 = $koneksi_layanan->prepare($insertSql1);
+                $stmt1->bind_param("ssssssss", $patientID, $orderID, $description, $reportDate, $doctorID, $doctorName, $link, $response);
 
-                $sql2 = "INSERT INTO layanan.hasil_rad (TINDAKAN_MEDIS, KLINIS, KESAN, USUL, HASIL, TANGGAL, DOKTER, OLEH, STATUS)
-                        VALUES ('$orderID', '$klinis', '$kesan', '$usul', '$hasil', '$formattedDate', '$doctorID', '$doctorID', '2')
-                        ON DUPLICATE KEY UPDATE 
-                        KLINIS = VALUES(KLINIS),
-                        KESAN = VALUES(KESAN),
-                        USUL = VALUES(USUL),
-                        HASIL = VALUES(HASIL),
-                        TANGGAL = VALUES(TANGGAL),
-                        DOKTER = VALUES(DOKTER),
-                        OLEH = VALUES(OLEH),
-                        STATUS = VALUES(STATUS)";
+                // SQL untuk memasukkan atau memperbarui data ke dalam tabel hasil_rad
+                $insertSql2 = "INSERT INTO layanan.hasil_rad 
+                            (TINDAKAN_MEDIS, KLINIS, KESAN, USUL, HASIL, TANGGAL, DOKTER, OLEH, STATUS)
+                            VALUES (?, ?, ?, ?, ?, ?, ?, ?, '2')
+                            ON DUPLICATE KEY UPDATE 
+                            KLINIS = VALUES(KLINIS),
+                            KESAN = VALUES(KESAN),
+                            USUL = VALUES(USUL),
+                            HASIL = VALUES(HASIL),
+                            TANGGAL = VALUES(TANGGAL),
+                            DOKTER = VALUES(DOKTER),
+                            OLEH = VALUES(OLEH),
+                            STATUS = '2'";
+                $stmt2 = $koneksi_layanan->prepare($insertSql2);
+                $stmt2->bind_param("ssssssss", $orderID, $klinis, $kesan, $usul, $hasil, $formattedDate, $doctorID, $doctorID);
+                // Eksekusi pernyataan pertama
+                $insertResult1 = $stmt1->execute();
 
-                // $sql2 = "INSERT INTO layanan.hasil_rad (TINDAKAN_MEDIS, KLINIS ,KESAN, USUL, HASIL, TANGGAL, DOKTER, OLEH, STATUS)
-                //         VALUES ('$orderID', '$klinis', '$kesan', '$usul', '$hasil', '$formattedDate','$doctorID','$doctorID','2')";
+                // Eksekusi pernyataan kedua
+                $insertResult2 = $stmt2->execute();
 
-                if ($koneksi_layanan->query($sql) === TRUE && $koneksi_layanan->query($sql2) === TRUE) {
+                // Cek hasil eksekusi kedua pernyataan
+                if ($insertResult1 && $insertResult2) {
                     $response = array("Success" => true, "message" => "Data berhasil disimpan ke dalam database.", "data" => $data);
                 } else {
                     http_response_code(500);
-                    $response = array("Success" => false, "message" => "Gagal menyimpan data ke dalam database: " . $koneksi_layanan->error);
+                    $errorMessage = $koneksi_layanan->error;
+                    $response = array("Success" => false, "message" => "Gagal menyimpan data ke dalam database: " . $errorMessage);
                 }
-                $koneksi_layanan->close();
+
+                // Menutup statement
+                $stmt1->close();
+                $stmt2->close();
+
         //    } 
         //     else {
         //         http_response_code(400); // Bad Request
